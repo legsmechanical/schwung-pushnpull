@@ -314,7 +314,7 @@ static int pnp_get_param(void *inst, const char *key, char *buf, int n){
         const char *h = "{\"modes\":null,\"levels\":{"
           "\"root\":{\"children\":null,"
             "\"knobs\":[\"curve\",\"length\",\"volume\",\"filter\",\"slope\",\"shift\",\"band_freq\",\"output\"],"
-            "\"params\":[{\"key\":\"view\",\"label\":\"Curve\"},"
+            "\"params\":[{\"key\":\"view\",\"label\":\"Visual Edit\"},"
               "\"curve\",\"length\",\"volume\",\"filter\",\"slope\",\"shift\",\"attack\","
               "\"band_on\",\"band_freq\",\"output\","
               "{\"level\":\"filtset\",\"label\":\"Filter\"}]},"
@@ -340,7 +340,7 @@ static int pnp_get_param(void *inst, const char *key, char *buf, int n){
           "{\"key\":\"band_on\",\"name\":\"Band Split\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":\"Off\"},"
           "{\"key\":\"band_freq\",\"name\":\"Band Freq\",\"type\":\"float\",\"min\":20,\"max\":5120,\"default\":320,\"step\":10,\"unit\":\"Hz\"},"
           "{\"key\":\"output\",\"name\":\"Output\",\"type\":\"float\",\"min\":-24,\"max\":12,\"default\":0,\"step\":0.5,\"unit\":\"dB\"},"
-          "{\"key\":\"view\",\"name\":\"Curve\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js#pushnpull_canvas\",\"show_footer\":false,\"show_value\":false}"
+          "{\"key\":\"view\",\"name\":\"Visual Edit\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js#pushnpull_canvas\",\"show_footer\":false,\"show_value\":false}"
           "]";
         int len=strlen(p); if(len<n){ strcpy(buf,p); return len; } return -1;
     }

@@ -1,12 +1,14 @@
 # PushNPull
 
+### Creative sidechain effects for dummies.
+
 A tempo-synced **curve shaper** audio FX for Schwung / Ableton Move.
 
 A beat-locked curve runs in time with your project tempo and produces a bipolar
 modulation signal that can **pull** (duck) or **push** (boost). Route it to the
 output **Volume**, a multimode **Filter**, or both at once.
 
-![PushNPull — Curve view](docs/curve-view.png)
+<img src="docs/curve-view.png" alt="PushNPull — Visual Edit" width="524">
 
 ## Use case
 
@@ -22,21 +24,19 @@ or audio-input triggering).
 
 ## How it works
 
-```
-MIDI clock ──► beat phasor ──► curve (+ Slope / Shift / Attack) ──► m ∈ [-1,+1]
-                                                                      │
-                                              ┌───────────────────────┴───────────┐
-                                          Volume target                      Filter target
-                                       (full-band or low-band)            (cutoff modulation)
-```
+Pick a shape — the **curve** — that repeats in time with your track. On every beat
+(or whatever rate you choose) the curve sweeps the sound's **volume** down and back
+up — that's the classic "pumping" duck under the kick — or it can sweep a **filter**
+instead, or both at once. You can also flip it around so the curve *boosts* instead
+of ducks.
 
-`m = 0` is rest (no change), `m < 0` pulls (duck/close), `m > 0` pushes
-(boost/open). A target does nothing while its depth is `0%` ("Off"), so you can run
-Volume only, Filter only, or both.
+That's it: choose a curve, set how often it repeats, and dial in how much it ducks
+or boosts. Turn a knob to `0%` and that part simply does nothing, so you can keep it
+as a simple volume pump, a filter sweep, or a mix of the two.
 
 ## On-device editing
 
-Open the **Curve** view for a live curve display (it redraws as you edit) with the
+Open the **Visual Edit** view for a live curve display (it redraws as you edit) with the
 eight knobs mapped over it:
 
 | Row | Knob 1 | Knob 2 | Knob 3 | Knob 4 |
@@ -106,9 +106,6 @@ resonance, drive) and **Output** live in the standard parameter menu.
 ./scripts/install.sh   # scp to Move; then restart the host
 ```
 
-Off-device DSP tests: `cd tests && make && ./measure`.
-Canvas helper tests: `node tests/canvas_helpers.test.mjs`.
-
 ## Credits
 
 Built on the DSP foundation of
@@ -117,4 +114,4 @@ SVF and transistor-ladder filters, parameter smoother, and build/test infra. Pus
 MIDI-clock beat phasor, the curve bank + shaper (Slope/Shift/Attack), the
 volume/band-split path, and the on-device curve editor.
 
-Design notes in `docs/superpowers/`. License: MIT.
+License: MIT.
