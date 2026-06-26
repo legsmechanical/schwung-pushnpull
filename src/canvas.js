@@ -149,14 +149,14 @@ function clampNum(v, lo, hi){ return v < lo ? lo : (v > hi ? hi : v); }
  * Editing types: enum -> cycle OPTIONS (wrap); pct/pctbip -> float step+clamp.
  * disp drives the compact on-screen value. sens=detents/step; dec=decimals. */
 var PNP_LAYOUT = [
-  { key:"curve",  abbr:"CURV",  type:"enum",   opts:PNP_CURVE_NAMES, sens:6,                              disp:"curve"  },
-  { key:"length", abbr:"LNGTH", type:"enum",   opts:PNP_LEN_NAMES,   sens:6,                              disp:"raw"    },
-  { key:"slope",  abbr:"SLOPE", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.55,          disp:"pct"    },
-  { key:"shift",  abbr:"SHIFT", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.5,           disp:"pct"    },
-  { key:"attack", abbr:"ATTAK", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0,             disp:"pct"    },
-  { key:"cutoff", abbr:"FREQ",  type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.5,           disp:"pct"    },
-  { key:"filter", abbr:"FILTR", type:"pctbip", min:-1, max:1, step:0.01, dec:2, sens:3, fb:0,  zeroOff:1, disp:"pctbip" },
-  { key:"volume", abbr:"VOLUM", type:"pctbip", min:-1, max:1, step:0.01, dec:2, sens:3, fb:-1, zeroOff:1, disp:"pctbip" }
+  { key:"curve",  abbr:"Curv",  type:"enum",   opts:PNP_CURVE_NAMES, sens:6,                              disp:"curve"  },
+  { key:"length", abbr:"Lngth", type:"enum",   opts:PNP_LEN_NAMES,   sens:6,                              disp:"raw"    },
+  { key:"slope",  abbr:"Slope", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.55,          disp:"pct"    },
+  { key:"shift",  abbr:"Shift", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.5,           disp:"pct"    },
+  { key:"attack", abbr:"Attak", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0,             disp:"pct"    },
+  { key:"cutoff", abbr:"Freq",  type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.5,           disp:"pct"    },
+  { key:"filter", abbr:"Filtr", type:"pctbip", min:-1, max:1, step:0.01, dec:2, sens:3, fb:0,  zeroOff:1, disp:"pctbip" },
+  { key:"volume", abbr:"Volum", type:"pctbip", min:-1, max:1, step:0.01, dec:2, sens:3, fb:-1, zeroOff:1, disp:"pctbip" }
 ];
 
 /* Compact cell value text from a raw getParam string. */

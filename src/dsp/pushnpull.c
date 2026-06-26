@@ -160,6 +160,14 @@ static void pnp_process(void *inst, int16_t *audio, int frames){
     pnp_t *I=(pnp_t*)inst; if(!I) return;
 
     double inc = pnp_clock_block_start(&I->clk);   /* beats per sample (resyncs phase) */
+
+    /* No MIDI clock -> effectively bypassed: leave audio untouched and pass through.
+     * (Still advance the clock so tick timing/detection stays correct.) */
+    if (!pnp_clock_active(&I->clk)) {
+        pnp_clock_advance_block(&I->clk, frames);
+        return;
+    }
+
     double beats_per_cycle = LEN_BEATS[I->length];
     double beat = I->clk.beat_pos;
     /* No target selector: each target runs only when its depth is nonzero, so a

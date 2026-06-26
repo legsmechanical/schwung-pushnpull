@@ -16,6 +16,7 @@
 
 #define TICKS_PER_BEAT 24.0
 #define EMA_ALPHA 0.15
+#define CLOCK_TIMEOUT_SEC 0.5   /* no tick within this -> clock considered absent */
 
 static void zero(pnp_clock_t *c) {
     char *p = (char*)c;
@@ -90,4 +91,14 @@ double pnp_clock_bpm(const pnp_clock_t *c) {
     if (c->have_period && c->period_ema > 0.0)
         return c->fs * 60.0 / (c->period_ema * TICKS_PER_BEAT);
     return c->fallback_bpm;
+}
+
+/* True only while MIDI clock is actually arriving: we've measured a tick period
+ * AND a tick landed within the timeout window. When the host stops broadcasting
+ * clock (transport stopped / no clock source), this goes false and PushNPull
+ * passes audio through untouched. */
+int pnp_clock_active(const pnp_clock_t *c) {
+    if (!c->have_period) return 0;
+    uint32_t since = c->sample_pos - c->last_tick_sample;   /* unsigned wrap-safe */
+    return (double)since < c->fs * CLOCK_TIMEOUT_SEC;
 }

@@ -20,4 +20,5 @@ void   pnp_clock_on_midi(pnp_clock_t *c, const uint8_t *msg, int len);
 double pnp_clock_block_start(pnp_clock_t *c);   /* resync; returns per-sample beat increment */
 void   pnp_clock_advance_block(pnp_clock_t *c, int frames);
 double pnp_clock_bpm(const pnp_clock_t *c);
+int    pnp_clock_active(const pnp_clock_t *c);   /* 1 if a clock tick arrived recently */
 #endif

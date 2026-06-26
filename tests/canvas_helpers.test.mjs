@@ -45,8 +45,8 @@ eq(T.LAYOUT.map(p => p.key),
    ["curve","length","slope","shift","attack","cutoff","filter","volume"],
    "LAYOUT knob order (top: modulator, bottom: attack/tone/targets)");
 eq(T.LAYOUT.map(p => p.abbr),
-   ["CURV","LNGTH","SLOPE","SHIFT","ATTAK","FREQ","FILTR","VOLUM"],
-   "LAYOUT uppercase labels");
+   ["Curv","Lngth","Slope","Shift","Attak","Freq","Filtr","Volum"],
+   "LAYOUT title-case labels");
 
 const byKey = {}; T.LAYOUT.forEach(p => byKey[p.key] = p);
 

@@ -335,6 +335,21 @@ int main(void) {
         double fexpect = 1.0 / (FS * 60.0 / 140.0);   /* 1 / samples-per-beat at 140 */
         CHECK(fabs(finc - fexpect) / fexpect < 0.02,
               "clock: free-run uses fallback BPM when stopped (got %.3e want %.3e)", finc, fexpect);
+
+        /* ---- clock-active gate (bypass when no clock) ---- */
+        pnp_clock_t a; pnp_clock_init(&a, FS);
+        CHECK(pnp_clock_active(&a) == 0, "active: false before any clock (fresh)");
+        uint8_t st2 = 0xFA, tk2 = 0xF8;
+        pnp_clock_on_midi(&a, &st2, 1);
+        CHECK(pnp_clock_active(&a) == 0, "active: still false on Start alone (no period yet)");
+        for (int t = 1; t <= 8; t++) { a.sample_pos = (uint32_t)llround(t * spt); pnp_clock_on_midi(&a, &tk2, 1); }
+        CHECK(pnp_clock_active(&a) == 1, "active: true while ticks are arriving");
+        /* advance well past the timeout with no further ticks -> inactive (bypass) */
+        a.sample_pos += (uint32_t)(FS * 1.0);   /* 1s gap > 0.5s timeout */
+        CHECK(pnp_clock_active(&a) == 0, "active: false after clock stops (timeout -> bypass)");
+        /* a fresh tick re-activates */
+        pnp_clock_on_midi(&a, &tk2, 1);
+        CHECK(pnp_clock_active(&a) == 1, "active: re-activates when ticks resume");
     }
 
     /* ===== PushNPull: volume gain + band split ===== */
