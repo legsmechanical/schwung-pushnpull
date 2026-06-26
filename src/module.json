@@ -1,0 +1,16 @@
+{
+  "id": "pushnpull",
+  "name": "PushNPull",
+  "abbrev": "PNP",
+  "version": "0.1.0",
+  "description": "Tempo-synced curve shaper: a beat-locked bipolar curve ducks/boosts volume and/or sweeps a multimode filter (sync mode)",
+  "author": "legsmechanical",
+  "license": "MIT",
+  "dsp": "pushnpull.so",
+  "api_version": 2,
+  "capabilities": {
+    "chainable": true,
+    "component_type": "audio_fx",
+    "audio_in": true
+  }
+}
