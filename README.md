@@ -8,8 +8,6 @@ A beat-locked curve runs in time with your project tempo and produces a bipolar
 modulation signal that can **pull** (duck) or **push** (boost). Route it to the
 output **Volume**, a multimode **Filter**, or both at once.
 
-<img src="docs/curve-view.png" alt="PushNPull — Visual Edit" width="524">
-
 ## Use case
 
 Drop PushNPull on a bassline, pad, chord stab, or full bus to get instant,
@@ -46,6 +44,8 @@ eight knobs mapped over it:
 
 The **jog wheel** cycles through curves. Filter *tone* params (model, mode,
 resonance, drive) and **Output** live in the standard parameter menu.
+
+<img src="docs/curve-view.png" alt="PushNPull — Visual Edit" width="524">
 
 ## Parameters
 

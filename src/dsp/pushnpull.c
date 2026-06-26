@@ -370,3 +370,13 @@ audio_fx_api_v2_t* move_audio_fx_init_v2(const host_api_v1_t *host){
     pnp_log("PushNPull v2 initialized");
     return &g_api;
 }
+
+/* The chain_host loads FX MIDI handlers via dlsym("move_audio_fx_on_midi")
+ * — separate from the API struct's on_midi field. Without this exported
+ * wrapper, fx_on_midi[slot] is NULL and we never see MIDI clock ticks, so
+ * the shaper free-runs on get_bpm() (right tempo, wrong phase). Export a
+ * thin wrapper so clock/notes actually reach pnp_on_midi. */
+__attribute__((visibility("default")))
+void move_audio_fx_on_midi(void *instance, const uint8_t *msg, int len, int source){
+    pnp_on_midi(instance, msg, len, source);
+}
