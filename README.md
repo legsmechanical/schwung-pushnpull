@@ -17,9 +17,6 @@ is **bidirectional** and can also drive a filter, it doubles as a rhythmic
 volume/filter LFO: gate, stutter, swell, tremolo, and filter-pump grooves on
 sustained sounds.
 
-It runs in **sync mode only** (locked to MIDI clock / project tempo; no MIDI-note
-or audio-input triggering).
-
 ## How it works
 
 Pick a shape — the **curve** — that repeats in time with your track. On every beat
