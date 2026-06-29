@@ -2,7 +2,7 @@
  * Draws the selected curve over one cycle (Slope/Shift applied) with a live
  * playhead, framed by two rows of editable params in a tiny 5x5 MCU font so the
  * graph stays roomy:
- *   - TOP row  (knobs 1-4 / CC71-74): Curve, Length, Slope, Shift   (the modulator)
+ *   - TOP row  (knobs 1-4 / CC71-74): Curve, Rate, Slope, Shift   (the modulator)
  *   - BOT row  (knobs 5-8 / CC75-78): Attack, Cutoff(FREQ), Filter, Volume
  *   - jog (CC14): cycle Curve live; the active knob's cell inverts.
  *
@@ -150,7 +150,7 @@ function clampNum(v, lo, hi){ return v < lo ? lo : (v > hi ? hi : v); }
  * disp drives the compact on-screen value. sens=detents/step; dec=decimals. */
 var PNP_LAYOUT = [
   { key:"curve",  abbr:"Curv",  type:"enum",   opts:PNP_CURVE_NAMES, sens:6,                              disp:"curve"  },
-  { key:"length", abbr:"Lngth", type:"enum",   opts:PNP_LEN_NAMES,   sens:6,                              disp:"raw"    },
+  { key:"length", abbr:"Rate",  type:"enum",   opts:PNP_LEN_NAMES,   sens:6,                              disp:"raw"    },
   { key:"slope",  abbr:"Slope", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.55,          disp:"pct"    },
   { key:"shift",  abbr:"Shift", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.5,           disp:"pct"    },
   { key:"attack", abbr:"Attak", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0,             disp:"pct"    },

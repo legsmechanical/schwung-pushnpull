@@ -2,7 +2,7 @@
   "id": "pushnpull",
   "name": "PushNPull",
   "abbrev": "PNP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Creative sidechain effects for dummies — a tempo-synced curve shaper: a beat-locked bipolar curve ducks/boosts volume and/or sweeps a multimode filter (sync mode)",
   "author": "legsmechanical",
   "license": "MIT",

@@ -17,6 +17,12 @@ is **bidirectional** and can also drive a filter, it doubles as a rhythmic
 volume/filter LFO: gate, stutter, swell, tremolo, and filter-pump grooves on
 sustained sounds.
 
+> **Tempo-sync only — bypassed when the transport is stopped.** Because the curve
+> is locked to the host clock, PushNPull only shapes audio while the transport is
+> **running**. When playback is stopped (no incoming MIDI clock), the effect
+> passes audio straight through untouched — you'll hear the dry signal, and the
+> pumping/sweeping resumes the moment you hit play.
+
 ## How it works
 
 Pick a shape — the **curve** — that repeats in time with your track. On every beat
@@ -36,7 +42,7 @@ eight knobs mapped over it:
 
 | Row | Knob 1 | Knob 2 | Knob 3 | Knob 4 |
 |-----|--------|--------|--------|--------|
-| **Top** (modulator) | CURV | LNGTH | SLOPE | SHIFT |
+| **Top** (modulator) | CURV | RATE | SLOPE | SHIFT |
 | **Bottom** | ATTAK | FREQ (cutoff) | FILTR | VOLUM |
 
 The **jog wheel** cycles through curves. Filter *tone* params (model, mode,
@@ -61,7 +67,7 @@ resonance, drive) and **Output** live in the standard parameter menu.
   - *Swell* — a positive boost bump (groove on sustained sounds).
   - *Stutter* — trance gate: four quick gated dips per cycle.
   - *Pump* — bipolar push & pull: ducks on the beat, boosts mid-cycle, settles.
-- **Length** — cycle rate: `1/8`, `1/4` (default), `1/2`, `1/1`. (Sets how often
+- **Rate** — cycle rate: `1/8`, `1/4` (default), `1/2`, `1/1`. (Sets how often
   the curve repeats; it does not change the curve's depth or shape.)
 - **Slope** — the active-window *width*: how much of the cycle the dip/rise
   occupies. Wider = longer ducking. Depth is unaffected.

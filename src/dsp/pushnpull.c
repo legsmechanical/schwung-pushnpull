@@ -334,7 +334,7 @@ static int pnp_get_param(void *inst, const char *key, char *buf, int n){
     if(!strcmp(key,"chain_params")){
         const char *p = "["
           "{\"key\":\"curve\",\"name\":\"Curve\",\"type\":\"enum\",\"options\":[\"Sidechain 1\",\"Sidechain 2\",\"Punch\",\"Sub Bass\",\"Gate\",\"Reverse\",\"Pulse\",\"Push\",\"Trim\",\"Swell\",\"Stutter\",\"Pump\"],\"default\":\"Sidechain 1\"},"
-          "{\"key\":\"length\",\"name\":\"Length\",\"type\":\"enum\",\"options\":[\"1/8\",\"1/4\",\"1/2\",\"1/1\"],\"default\":\"1/4\"},"
+          "{\"key\":\"length\",\"name\":\"Rate\",\"type\":\"enum\",\"options\":[\"1/8\",\"1/4\",\"1/2\",\"1/1\"],\"default\":\"1/4\"},"
           "{\"key\":\"volume\",\"name\":\"Volume\",\"type\":\"float\",\"min\":-1,\"max\":1,\"default\":-1,\"step\":0.02,\"unit\":\"%\"},"
           "{\"key\":\"slope\",\"name\":\"Slope\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.55,\"step\":0.02,\"unit\":\"%\"},"
           "{\"key\":\"shift\",\"name\":\"Shift\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.5,\"step\":0.02,\"unit\":\"%\"},"

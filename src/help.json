@@ -2,7 +2,8 @@
   "title": "PushNPull",
   "sections": [
     {"heading": "What it does", "body": "Creative sidechain effects for dummies. A tempo-synced curve shaper: a beat-locked curve modulates volume (duck or boost) and/or a multimode filter's cutoff. Sync only — it locks to the host clock."},
-    {"heading": "Curve / Length", "body": "Pick one of 12 curve shapes; Length sets the cycle rate (1/8, 1/4, 1/2, 1/1)."},
+    {"heading": "Transport-synced", "body": "Tempo-sync only: PushNPull is bypassed when the transport is stopped. With no clock running, audio passes through dry/untouched; the effect kicks back in when you hit play."},
+    {"heading": "Curve / Rate", "body": "Pick one of 12 curve shapes; Rate sets the cycle rate (1/8, 1/4, 1/2, 1/1)."},
     {"heading": "Volume / Filter", "body": "Bipolar depths, one per target. 0% = Off; negative ducks, positive pumps/boosts. Run either or both."},
     {"heading": "Slope / Shift", "body": "Slope sets how wide the active part of the curve is; Shift slides it in time for groove. Neither changes depth."},
     {"heading": "Attack", "body": "Softens the onset — eases into the curve so the entry isn't an instant snap. Depth is preserved; 0% = instant."},
