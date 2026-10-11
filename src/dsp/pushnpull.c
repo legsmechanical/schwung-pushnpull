@@ -19,6 +19,7 @@
 #include "shaper.h"
 #include "curves.h"
 #include "vol.h"
+#include "ui_contract.h"
 
 #define SAMPLE_RATE 44100.0
 
@@ -291,22 +292,19 @@ static int pnp_get_param(void *inst, const char *key, char *buf, int n){
     if(!strcmp(key,"filter"))    return snprintf(buf,n,"%.2f",I->filter);
     if(!strcmp(key,"drive"))     return snprintf(buf,n,"%.2f",I->drive);
     if(!strcmp(key,"band_on"))   return snprintf(buf,n,"%s",I->band_on?"On":"Off");
-    if(!strcmp(key,"band_freq")) return I->band_on ? snprintf(buf,n,"%.0f",I->band_freq)
-                                                   : snprintf(buf,n,"--");
+    if(!strcmp(key,"band_freq")) return snprintf(buf,n,"%.0f",I->band_freq);
     if(!strcmp(key,"output"))    return snprintf(buf,n,"%.1f",I->output_db);
     if(!strcmp(key,"name"))      return snprintf(buf,n,"PushNPull");
-    if(!strcmp(key,"_phase")){
-        double bpc = LEN_BEATS[I->length];
-        double cp  = I->clk.beat_pos / bpc; cp -= floor(cp);
-        return snprintf(buf,n,"%.4f", cp);
-    }
-    if(!strcmp(key,"_curve")){            /* whole curve, 128 comma-sep samples (no ':' in key) */
-        int off=0; const int N=128;
-        for(int i=0;i<N && off < n-12;i++){
-            double p=(double)i/(double)(N-1);
-            off += snprintf(buf+off, n-off, "%s%.3f", i?",":"", shaper_eval(&I->shp,p));
-        }
-        return off;
+    if(!strcmp(key,"ui_phase")){
+        /* "<phase> <phase per ms> <active>" for the curve picture's playhead.
+         * Phase comes from tick_count (advanced in on_midi), not beat_pos: the
+         * host skips process on a silent slot, which would freeze beat_pos. */
+        double bpc  = LEN_BEATS[I->length];
+        double beats = I->clk.running ? (double)I->clk.tick_count / 24.0 : I->clk.beat_pos;
+        double cp   = beats / bpc; cp -= floor(cp);
+        double rate = pnp_clock_bpm(&I->clk) / 60000.0 / bpc;
+        int active  = pnp_clock_active(&I->clk) ? 1 : 0;
+        return snprintf(buf,n,"%.4f %.7f %d", cp, rate, active);
     }
     if(!strcmp(key,"state")){
         return snprintf(buf,n,
@@ -319,38 +317,10 @@ static int pnp_get_param(void *inst, const char *key, char *buf, int n){
           I->cutoff,I->resonance,I->filter,I->drive,I->band_on,I->band_freq,I->output_db);
     }
     if(!strcmp(key,"ui_hierarchy")){
-        const char *h = "{\"modes\":null,\"levels\":{"
-          "\"root\":{\"children\":null,"
-            "\"knobs\":[\"curve\",\"length\",\"volume\",\"filter\",\"slope\",\"shift\",\"band_freq\",\"output\"],"
-            "\"params\":[{\"key\":\"view\",\"label\":\"Visual Edit\"},"
-              "\"curve\",\"length\",\"volume\",\"filter\",\"slope\",\"shift\",\"attack\","
-              "\"band_on\",\"band_freq\",\"output\","
-              "{\"level\":\"filtset\",\"label\":\"Filter\"}]},"
-          "\"filtset\":{\"label\":\"Filter\",\"children\":null,"
-            "\"knobs\":[\"cutoff\",\"resonance\",\"drive\",\"mode\",\"model\"],"
-            "\"params\":[\"model\",\"mode\",\"cutoff\",\"resonance\",\"drive\"]}}}";
-        int len=strlen(h); if(len<n){ strcpy(buf,h); return len; } return -1;
+        int len=(int)strlen(PNP_UI_HIERARCHY); if(len<n){ strcpy(buf,PNP_UI_HIERARCHY); return len; } return -1;
     }
     if(!strcmp(key,"chain_params")){
-        const char *p = "["
-          "{\"key\":\"curve\",\"name\":\"Curve\",\"type\":\"enum\",\"options\":[\"Sidechain 1\",\"Sidechain 2\",\"Punch\",\"Sub Bass\",\"Gate\",\"Reverse\",\"Pulse\",\"Push\",\"Trim\",\"Swell\",\"Stutter\",\"Pump\"],\"default\":\"Sidechain 1\"},"
-          "{\"key\":\"length\",\"name\":\"Rate\",\"type\":\"enum\",\"options\":[\"1/8\",\"1/4\",\"1/2\",\"1/1\"],\"default\":\"1/4\"},"
-          "{\"key\":\"volume\",\"name\":\"Volume\",\"type\":\"float\",\"min\":-1,\"max\":1,\"default\":-1,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"slope\",\"name\":\"Slope\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.55,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"shift\",\"name\":\"Shift\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.5,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"attack\",\"name\":\"Attack\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"model\",\"name\":\"Model\",\"type\":\"enum\",\"options\":[\"SVF\",\"Schwoog\"],\"default\":\"SVF\"},"
-          "{\"key\":\"mode\",\"name\":\"Mode\",\"type\":\"enum\",\"options\":[\"LP\",\"HP\",\"BP\",\"Notch\",\"Peak\",\"AP\"],\"default\":\"LP\"},"
-          "{\"key\":\"cutoff\",\"name\":\"Cutoff\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.5,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"resonance\",\"name\":\"Resonance\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.2,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"filter\",\"name\":\"Filter\",\"type\":\"float\",\"min\":-1,\"max\":1,\"default\":0,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"drive\",\"name\":\"Drive\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0,\"step\":0.02,\"unit\":\"%\"},"
-          "{\"key\":\"band_on\",\"name\":\"Band Split\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":\"Off\"},"
-          "{\"key\":\"band_freq\",\"name\":\"Band Freq\",\"type\":\"float\",\"min\":20,\"max\":5120,\"default\":320,\"step\":10,\"unit\":\"Hz\"},"
-          "{\"key\":\"output\",\"name\":\"Output\",\"type\":\"float\",\"min\":-24,\"max\":12,\"default\":0,\"step\":0.5,\"unit\":\"dB\"},"
-          "{\"key\":\"view\",\"name\":\"Visual Edit\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js#pushnpull_canvas\",\"show_footer\":false,\"show_value\":false}"
-          "]";
-        int len=strlen(p); if(len<n){ strcpy(buf,p); return len; } return -1;
+        int len=(int)strlen(PNP_CHAIN_PARAMS); if(len<n){ strcpy(buf,PNP_CHAIN_PARAMS); return len; } return -1;
     }
     return -1;
 }

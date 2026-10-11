@@ -1,24 +1,26 @@
-/* PushNPull on-device curve editor. type:"canvas" overlay.
- * Draws the selected curve over one cycle (Slope/Shift applied) with a live
- * playhead, framed by two rows of editable params in a tiny 5x5 MCU font so the
- * graph stays roomy:
- *   - TOP row  (knobs 1-4 / CC71-74): Curve, Rate, Slope, Shift   (the modulator)
- *   - BOT row  (knobs 5-8 / CC75-78): Attack, Cutoff(FREQ), Filter, Volume
- *   - jog (CC14): cycle Curve live; the active knob's cell inverts.
+/* PushNPull curve graphics for the knob grid.
  *
- * Loaded by the host as type:"canvas" param "view" (canvas.js#pushnpull_canvas).
+ * Two surfaces, one picture:
+ *   - canvas_overlay.drawCell: the "custom:pnpcurve" widget. It spans the four
+ *     shaping knobs (Curve, Slope, Shift, Attack) as one strip on the Curve
+ *     page and draws one cycle of the curve with a beat-locked playhead.
+ *   - pnp_curve_card: the same curve, larger, floated over the page while
+ *     Slope, Shift or Attack is held or turned.
  *
- * Curve SHAPE is computed HERE in JS (mirroring dsp/curves.h) from the real
- * params curve/slope/shift, which route through ctx.getParam/setParam exactly
- * like any declared chain param. All drawing is setPixel/fillRect (the built-in
- * ctx.print/drawLine are avoided: print font is too large, drawLine may no-op). */
+ * Neither reads parameters: both are handed the page's values. The playhead
+ * comes from "ui_phase" ("<phase> <phase per ms> <active>"), which arrives a
+ * few times a second and is extrapolated between samples from the frame clock.
+ *
+ * Curve SHAPE is computed here, mirroring dsp/curves.h and dsp/shaper.c. */
 
 /* ---- curve math (mirror of src/dsp/curves.h) ---- */
 var PNP_CURVE_NAMES = ["Sidechain 1","Sidechain 2","Punch","Sub Bass","Gate","Reverse","Pulse","Push",
                        "Trim","Swell","Stutter","Pump"];
-var PNP_CURVE_ABBR  = ["SC1","SC2","Pun","Sub","Gat","Rev","Pul","Psh","Trm","Swl","Stu","Pmp"];
 var PNP_DEF_SLOPE   = [0.55,0.65,0.40,0.85,0.12,0.40,0.50,0.55,0.18,0.70,0.90,0.80];
-var PNP_LEN_NAMES   = ["1/8","1/4","1/2","1/1"];
+/* Which way each curve moves from rest: -1 dips, +1 rises, 0 does both. The
+ * picture puts the resting line at the top, bottom or middle accordingly, so a
+ * one-sided curve gets the whole height. */
+var PNP_CURVE_POLARITY = [-1,-1,-1,-1,-1,-1,-1,+1,-1,+1,-1,0];
 
 function pnpSmoothstep(t){ if(t<=0)return 0; if(t>=1)return 1; return t*t*(3-2*t); }
 
@@ -59,271 +61,163 @@ function pnpShaperEval(cv, p, A, shift, attack){
   return pnpCurveEval(cv, pp, A);
 }
 
-/* ---- mcufont 5x5 (source: schwung-davebox/assets/fonts/mcufont.h via
- * ui_constants.mjs MCUFONT). Each glyph: 5 rows, bits 4-0 MSB-first, 6px step.
- * '%' added here (not in the original set). Missing glyphs render as blank. */
-var MCUFONT = {
-  'A':[0b01110,0b10001,0b11111,0b10001,0b10001], 'B':[0b11110,0b10001,0b11110,0b10001,0b11110],
-  'C':[0b01111,0b10000,0b10000,0b10000,0b01111], 'D':[0b11110,0b10001,0b10001,0b10001,0b11110],
-  'E':[0b11111,0b10000,0b11100,0b10000,0b11111], 'F':[0b11111,0b10000,0b11100,0b10000,0b10000],
-  'G':[0b01111,0b10000,0b10011,0b10001,0b01111], 'H':[0b10001,0b10001,0b11111,0b10001,0b10001],
-  'I':[0b11111,0b00100,0b00100,0b00100,0b11111], 'J':[0b11111,0b00010,0b00010,0b10010,0b01100],
-  'K':[0b10010,0b10100,0b11000,0b10100,0b10010], 'L':[0b10000,0b10000,0b10000,0b10000,0b11111],
-  'M':[0b11111,0b10101,0b10101,0b10001,0b10001], 'N':[0b10001,0b11001,0b10101,0b10011,0b10001],
-  'O':[0b01110,0b10001,0b10001,0b10001,0b01110], 'P':[0b11110,0b10001,0b11110,0b10000,0b10000],
-  'Q':[0b01110,0b10001,0b10001,0b10010,0b01101], 'R':[0b11110,0b10001,0b11110,0b10010,0b10001],
-  'S':[0b01111,0b10000,0b01110,0b00001,0b11110], 'T':[0b11111,0b00100,0b00100,0b00100,0b00100],
-  'U':[0b10001,0b10001,0b10001,0b10001,0b01110], 'V':[0b10001,0b10001,0b01010,0b01010,0b00100],
-  'W':[0b10001,0b10001,0b10101,0b10101,0b11011], 'X':[0b10001,0b01010,0b00100,0b01010,0b10001],
-  'Y':[0b10001,0b01010,0b00100,0b00100,0b00100], 'Z':[0b11111,0b00010,0b00100,0b01000,0b11111],
-  'a':[0b00000,0b01111,0b10001,0b10001,0b01111], 'b':[0b10000,0b11110,0b10001,0b10001,0b11110],
-  'c':[0b00000,0b01111,0b10000,0b10000,0b01111], 'd':[0b00001,0b01111,0b10001,0b10001,0b01111],
-  'e':[0b00000,0b01110,0b11111,0b10000,0b01111], 'f':[0b00000,0b01111,0b10000,0b11110,0b10000],
-  'g':[0b00000,0b01110,0b11111,0b00001,0b11110], 'h':[0b10000,0b10000,0b11110,0b10001,0b10001],
-  'i':[0b00100,0b00000,0b01100,0b00100,0b01110], 'j':[0b00010,0b00000,0b00010,0b10010,0b01100],
-  'k':[0b10000,0b10000,0b10110,0b11000,0b10110], 'l':[0b00000,0b10000,0b10000,0b10000,0b01111],
-  'm':[0b00000,0b11110,0b10101,0b10101,0b10001], 'n':[0b00000,0b11110,0b10001,0b10001,0b10001],
-  'o':[0b00000,0b01110,0b10001,0b10001,0b01110], 'p':[0b00000,0b11110,0b10001,0b11110,0b10000],
-  'q':[0b00000,0b01111,0b10001,0b01111,0b00001], 'r':[0b00000,0b01110,0b10000,0b10000,0b10000],
-  's':[0b00000,0b01110,0b11000,0b00110,0b11100], 't':[0b00000,0b11111,0b00100,0b00100,0b00100],
-  'u':[0b00000,0b10001,0b10001,0b10001,0b01110], 'v':[0b00000,0b10001,0b10001,0b01010,0b00100],
-  'w':[0b00000,0b10001,0b10101,0b10101,0b01110], 'x':[0b00000,0b10010,0b01100,0b01100,0b10010],
-  'y':[0b00000,0b10010,0b01110,0b00010,0b01100], 'z':[0b00000,0b11110,0b00100,0b01000,0b11110],
-  '0':[0b01110,0b10001,0b10101,0b10001,0b01110], '1':[0b01100,0b10100,0b00100,0b00100,0b11111],
-  '2':[0b01110,0b10001,0b00110,0b01000,0b11111], '3':[0b11111,0b00001,0b01110,0b00001,0b11110],
-  '4':[0b10010,0b10010,0b11111,0b00010,0b00010], '5':[0b11111,0b10000,0b01110,0b00001,0b11110],
-  '6':[0b01110,0b10000,0b11110,0b10001,0b01110], '7':[0b11111,0b00010,0b00100,0b01000,0b01000],
-  '8':[0b01110,0b10001,0b01110,0b10001,0b01110], '9':[0b11111,0b10001,0b11111,0b00001,0b00001],
-  '-':[0b00000,0b00000,0b01110,0b00000,0b00000], '+':[0b00000,0b00100,0b01110,0b00100,0b00000],
-  '.':[0b00000,0b00000,0b00000,0b00000,0b01000], ',':[0b00000,0b00000,0b00000,0b00100,0b01000],
-  '?':[0b01110,0b10001,0b00110,0b00000,0b00100], '!':[0b00100,0b00100,0b00100,0b00000,0b00100],
-  ':':[0b00000,0b01000,0b00000,0b01000,0b00000], '=':[0b00000,0b01110,0b00000,0b01110,0b00000],
-  "'":[0b00100,0b00100,0b00000,0b00000,0b00000], '#':[0b01010,0b11111,0b01010,0b11111,0b01010],
-  '/':[0b00001,0b00010,0b00100,0b01000,0b10000], '(':[0b00110,0b01000,0b01000,0b01000,0b00110],
-  ')':[0b01100,0b00010,0b00010,0b00010,0b01100], '<':[0b00010,0b00100,0b01000,0b00100,0b00010],
-  '>':[0b01000,0b00100,0b00010,0b00100,0b01000], '%':[0b10001,0b00010,0b00100,0b01000,0b10001]
-};
+/* ---- values ---- */
 
-function mcuPrint(ctx, x, y, text, color){
-  for (var ci = 0; ci < text.length; ci++){
-    var g = MCUFONT[text[ci]];
-    if (!g) continue;
-    for (var row = 0; row < 5; row++){
-      var bits = g[row];
-      for (var col = 0; col < 5; col++)
-        if (bits & (1 << (4 - col))) ctx.setPixel(x + ci * 6 + col, y + row, color);
-    }
-  }
-}
-function mcuPrintC(ctx, cx, y, text, color){
-  mcuPrint(ctx, cx - Math.floor((text.length * 6 - 1) / 2), y, text, color);
+/* An enum may arrive as its label or as its index. -1 = no usable answer. */
+function pnpCurveIndex(raw){
+  if (raw === null || raw === undefined || raw === "") return -1;
+  var i = PNP_CURVE_NAMES.indexOf(String(raw));
+  if (i >= 0) return i;
+  var n = Number(raw);
+  if (isFinite(n) && n >= 0 && n < PNP_CURVE_NAMES.length && Math.floor(n) === n) return n;
+  return -1;
 }
 
-/* ---- pure input helpers (unit-tested off-device) ---- */
-
-/* Relative-encoder sign: d2 1..63 = CW (+1), 65..127 = CCW (-1), else 0. */
-function dirFromCC(d2){
-  if (d2 >= 1 && d2 <= 63) return 1;
-  if (d2 >= 65 && d2 <= 127) return -1;
-  return 0;
-}
-
-/* Encoder accumulator: count detents until |accum| reaches sens, then fire+reset.
- * A direction reversal discards the pending accumulation first (davebox feel). */
-function accumStep(accum, dir, sens){
-  if ((accum > 0 && dir < 0) || (accum < 0 && dir > 0)) accum = 0;
-  accum += dir;
-  if (Math.abs(accum) >= sens) return { accum: 0, fire: true };
-  return { accum: accum, fire: false };
-}
-
-/* Wrap an enum index by dir into [0, count). */
-function cycleEnum(idx, dir, count){ return ((idx + dir) % count + count) % count; }
-
-/* Clamp a float into [min, max]. */
-function clampNum(v, lo, hi){ return v < lo ? lo : (v > hi ? hi : v); }
-
-/* ---- knob layout: index (CC-71) -> param ----
- * Two cohesive rows (uppercase labels). Top = the modulator (curve shape +
- * timing); bottom = the onset/tone/target controls. Output stays menu-only.
- * Editing types: enum -> cycle OPTIONS (wrap); pct/pctbip -> float step+clamp.
- * disp drives the compact on-screen value. sens=detents/step; dec=decimals. */
-var PNP_LAYOUT = [
-  { key:"curve",  abbr:"Curv",  type:"enum",   opts:PNP_CURVE_NAMES, sens:6,                              disp:"curve"  },
-  { key:"length", abbr:"Rate",  type:"enum",   opts:PNP_LEN_NAMES,   sens:6,                              disp:"raw"    },
-  { key:"slope",  abbr:"Slope", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.55,          disp:"pct"    },
-  { key:"shift",  abbr:"Shift", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.5,           disp:"pct"    },
-  { key:"attack", abbr:"Attak", type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0,             disp:"pct"    },
-  { key:"cutoff", abbr:"Freq",  type:"pct",    min:0,  max:1, step:0.01, dec:2, sens:3, fb:0.5,           disp:"pct"    },
-  { key:"filter", abbr:"Filtr", type:"pctbip", min:-1, max:1, step:0.01, dec:2, sens:3, fb:0,  zeroOff:1, disp:"pctbip" },
-  { key:"volume", abbr:"Volum", type:"pctbip", min:-1, max:1, step:0.01, dec:2, sens:3, fb:-1, zeroOff:1, disp:"pctbip" }
-];
-
-/* Compact cell value text from a raw getParam string. */
-function pnpCellText(pm, raw){
-  if (raw === null || raw === undefined || raw === "") return "-";
-  if (pm.disp === "raw") return raw;
-  if (pm.disp === "curve"){ var i = PNP_CURVE_NAMES.indexOf(raw); return i >= 0 ? PNP_CURVE_ABBR[i] : raw; }
-  if (pm.disp === "freq") return (raw === "--") ? "--" : raw;
-  var v = parseFloat(raw);
-  if (isNaN(v)) return "-";
-  if (pm.zeroOff && Math.round(v * 100) === 0) return "Off";   /* 0% target = inert */
-  if (pm.disp === "pct")    return Math.round(v * 100) + "%";
-  if (pm.disp === "pctbip") return (v > 0 ? "+" : "") + Math.round(v * 100) + "%";
-  if (pm.disp === "db")     return (v >= 0 ? "+" : "") + v.toFixed(1);
-  return raw;
-}
-
-/* Next value string to write, or null if no change. dir = +/-1. */
-function pnpNextWrite(pm, raw, dir){
-  if (pm.type === "enum"){
-    var idx = pm.opts.indexOf(raw);
-    if (idx < 0) idx = 0;
-    return pm.opts[cycleEnum(idx, dir, pm.opts.length)];
-  }
-  var cur = parseFloat(raw);
-  if (isNaN(cur)) cur = pm.fb;               /* e.g. band_freq reads "--" when split off */
-  var nv = clampNum(cur + dir * pm.step, pm.min, pm.max);
-  if (nv === cur) return null;
-  return (pm.dec === 0) ? String(Math.round(nv)) : nv.toFixed(pm.dec);
-}
-
-function pnpNum(ctx, key, dflt){
-  var raw = ctx.getParam(key);
+function pnpNum(raw, dflt){
   if (raw === null || raw === undefined || raw === "") return dflt;
-  var v = parseFloat(raw);
-  return isNaN(v) ? dflt : v;
+  var v = Number(raw);
+  return isFinite(v) ? v : dflt;
 }
 
-function pnpState(ctx){
-  var s = ctx.state;
-  if (!s.init){ s.init = true; s.accum = [0,0,0,0,0,0,0,0]; s.active = -1; }
-  return s;
+/* The four shaping values off a page's value map, or null when the curve
+ * itself did not answer: a read that did not answer must not become a picture. */
+function pnpShape(values){
+  if (!values) return null;
+  var cv = pnpCurveIndex(values.curve);
+  if (cv < 0) return null;
+  return { cv: cv,
+           slope:  pnpNum(values.slope,  PNP_DEF_SLOPE[cv]),
+           shift:  pnpNum(values.shift,  0.5),
+           attack: pnpNum(values.attack, 0) };
 }
 
-/* ---- layout geometry (128x64) ----
- * TOP cell rows 0..10, curve band 12..50 (mid 31), BOT cell rows 52..62. */
-var PNP_BAND_TOP = 12, PNP_BAND_MID = 31, PNP_BAND_AMP = 18;
-var PNP_CELL_W = 32, PNP_CELL_H = 11;
-function pnpCellTopY(k){ return k < 4 ? 0 : 52; }      /* label baseline */
-function pnpCellValY(k){ return (k < 4 ? 0 : 52) + 6; } /* value baseline */
-function pnpCellCX(k){ return (k % 4) * PNP_CELL_W + 16; }
+/* ---- the curve as pixel columns ---- */
 
-globalThis.pushnpull_canvas = {
-  onOpen: function(ctx){
-    var s = ctx.state;
-    s.init = false;            /* drop transient edit state on each open */
-    pnpState(ctx);
-  },
-
-  onMidi: function(ctx, payload){
-    var d = payload && payload.data;
-    if (!d || d.length < 3) return;
-    var s = pnpState(ctx);
-    var status = d[0] & 0xF0;
-
-    /* capacitive knob touch: notes 0-7 = knob 1-8. Highlight that cell. */
-    if (status === 0x90 || status === 0x80){
-      var note = d[1];
-      if (note <= 7) s.active = (status === 0x90 && d[2] >= 64) ? note : -1;
-      return;
+/* One [top, bottom] row pair per column over one cycle. Each column is
+ * supersampled and reaches into the next one's first sample, so a narrow
+ * trough keeps its depth and an instant edge leaves no gap. */
+function pnpColumns(shape, w, h){
+  var pol = PNP_CURVE_POLARITY[shape.cv];
+  var base = pol < 0 ? 0 : (pol > 0 ? h - 1 : (h - 1) >> 1);
+  var amp  = pol === 0 ? (h - 1) >> 1 : h - 1;
+  var SS = 4, top = new Array(w), bot = new Array(w);
+  for (var x = 0; x < w; x++){
+    var mmin = 2, mmax = -2;
+    for (var k = 0; k <= SS; k++){
+      var pp = (x + k / SS) / w;
+      if (pp > 0.9999) pp = 0.9999;
+      var m = pnpShaperEval(shape.cv, pp, shape.slope, shape.shift, shape.attack);
+      if (m < mmin) mmin = m;
+      if (m > mmax) mmax = m;
     }
+    var yT = Math.round(base - mmax * amp), yB = Math.round(base - mmin * amp);
+    if (yT < 0) yT = 0; if (yT > h - 1) yT = h - 1;
+    if (yB < 0) yB = 0; if (yB > h - 1) yB = h - 1;
+    top[x] = yT; bot[x] = yB;
+  }
+  return { top: top, bot: bot, base: base };
+}
 
-    if (status !== 0xB0) return;             /* CC only below */
-    var cc = d[1], val = d[2];
+/* Columns are rebuilt only when what they depend on changes; a frame is then
+ * a handful of rects. One slot per surface (widget, card). */
+function pnpCachedColumns(cache, shape, w, h){
+  var sig = shape.cv + "|" + shape.slope + "|" + shape.shift + "|" + shape.attack + "|" + w + "|" + h;
+  if (cache.sig !== sig){ cache.sig = sig; cache.cols = pnpColumns(shape, w, h); }
+  return cache.cols;
+}
 
-    if (cc === 14){                          /* jog -> cycle Curve live */
-      var jd = dirFromCC(val);
-      if (jd){
-        s.active = 0;
-        var nw = pnpNextWrite(PNP_LAYOUT[0], ctx.getParam("curve"), jd);
-        if (nw !== null) ctx.setParam("curve", nw);
-      }
-      return;
+/* ---- playhead ---- */
+
+function pnpWrap01(p){ p -= Math.floor(p); return p; }
+
+/* "<phase> <phase per ms> <active>"; a bare number is a phase with no rate. */
+function pnpParsePhase(raw){
+  if (raw === null || raw === undefined || raw === "") return null;
+  var parts = String(raw).trim().split(/\s+/);
+  var ph = Number(parts[0]);
+  if (!isFinite(ph)) return null;
+  var rate = parts.length > 1 ? Number(parts[1]) : 0;
+  var active = parts.length > 2 ? Number(parts[2]) !== 0 : true;
+  return { phase: pnpWrap01(ph), rate: isFinite(rate) ? rate : 0, active: active };
+}
+
+var PNP_PHASE_STALE_MS = 2500;   /* no fresh sample for this long -> no playhead */
+
+/* Phase to draw now, or -1 for none. `st` persists between frames. A fresh
+ * sample re-anchors the estimate; in between it runs on at the reported rate.
+ * A small disagreement is split rather than jumped to, so the line glides. */
+function pnpPlayhead(st, raw, nowMs){
+  if (raw !== st.raw){
+    st.raw = raw;
+    var s = pnpParsePhase(raw);
+    if (!s || !s.active){ st.on = false; return -1; }
+    var target = s.phase;
+    if (st.on){
+      var pred = pnpWrap01(st.p0 + (nowMs - st.t0) * st.rate);
+      var err = target - pred;
+      if (err > 0.5) err -= 1; else if (err < -0.5) err += 1;
+      if (Math.abs(err) < 0.2) target = pnpWrap01(pred + err * 0.5);
     }
+    st.on = true; st.p0 = target; st.t0 = nowMs; st.rate = s.rate; st.seen = nowMs;
+  }
+  if (!st.on) return -1;
+  if (nowMs - st.seen > PNP_PHASE_STALE_MS) return -1;
+  return pnpWrap01(st.p0 + (nowMs - st.t0) * st.rate);
+}
 
-    if (cc >= 71 && cc <= 78){               /* encoder -> edit mapped param */
-      var k = cc - 71;
-      var pm = PNP_LAYOUT[k];
-      if (!pm) return;
-      var dir = dirFromCC(val);
-      if (!dir) return;
-      s.active = k;
-      var res = accumStep(s.accum[k], dir, pm.sens);
-      s.accum[k] = res.accum;
-      if (!res.fire) return;
-      var w = pnpNextWrite(pm, ctx.getParam(pm.key), dir);
-      if (w !== null) ctx.setParam(pm.key, w);   /* one write per onMidi (no race) */
-    }
-  },
+/* ---- drawing ---- */
 
-  draw: function (ctx){
-    var W = ctx.width, H = ctx.height;
-    ctx.clear();
-    var s = pnpState(ctx);
+function pnpDrawCurve(ctx, x0, y0, w, h, cols, phase){
+  var x, xs;
+  for (x = 0; x < w; x += 4) ctx.fillRect(x0 + x, y0 + cols.base, 1, 1, 1);   /* resting level */
+  for (xs = 0, x = 1; x <= w; x++){
+    if (x < w && cols.top[x] === cols.top[xs] && cols.bot[x] === cols.bot[xs]) continue;
+    ctx.fillRect(x0 + xs, y0 + cols.top[xs], x - xs, cols.bot[xs] - cols.top[xs] + 1, 1);
+    xs = x;
+  }
+  if (phase >= 0){
+    var px = Math.floor(phase * w);
+    if (px > w - 1) px = w - 1;
+    for (var y = 0; y < h; y += 2) ctx.fillRect(x0 + px, y0 + y, 1, 1, 1);
+  }
+}
 
-    /* curve band: dotted baseline (resting/unity) at the band centre */
-    for (var bx = 0; bx < W; bx += 4) ctx.setPixel(bx, PNP_BAND_MID, 1);
+var pnpCellCache = {}, pnpCellPhase = {};
+var pnpCardCache = {}, pnpCardPhase = {};
 
-    /* resolve curve selection + shaping from real (routed) params */
-    var name = ctx.getParam("curve");
-    var cv = PNP_CURVE_NAMES.indexOf(name);
-    if (cv < 0) cv = 0;
-    var slope = pnpNum(ctx, "slope", PNP_DEF_SLOPE[cv]);
-    var shift = pnpNum(ctx, "shift", 0.5);
-    var attack = pnpNum(ctx, "attack", 0);
+globalThis.canvas_overlay = {
+  widgetKind: "custom:pnpcurve",
 
-    /* Supersample each column and draw its min..max envelope, so a narrow
-     * (small-Slope) trough/peak still renders at full depth instead of being
-     * skipped between pixel samples. Depth never changes with Slope — only the
-     * width does — so this keeps the viz honest to the audio. */
-    var lo = PNP_BAND_TOP, hi = PNP_BAND_MID + PNP_BAND_AMP;   /* 12..49 */
-    var SS = 6;
-    for (var x = 0; x < W; x++){
-      var mmin = 2, mmax = -2;
-      for (var k = 0; k < SS; k++){
-        var pp = (x + k / SS) / (W - 1);
-        if (pp > 1) pp = 1;
-        var mm = pnpShaperEval(cv, pp, slope, shift, attack);  /* [-1,1] */
-        if (mm < mmin) mmin = mm;
-        if (mm > mmax) mmax = mm;
-      }
-      var yTop = Math.round(PNP_BAND_MID - mmax * PNP_BAND_AMP);  /* +1 -> highest */
-      var yBot = Math.round(PNP_BAND_MID - mmin * PNP_BAND_AMP);  /* -1 -> lowest  */
-      if (yTop < lo) yTop = lo; if (yTop > hi) yTop = hi;
-      if (yBot < lo) yBot = lo; if (yBot > hi) yBot = hi;
-      for (var yy = yTop; yy <= yBot; yy++) ctx.setPixel(x, yy, 1);
-    }
-
-    /* playhead (dotted vertical, band only) — phase via synthetic key if routed */
-    var phRaw = ctx.getParam("_phase");
-    if (phRaw !== null && phRaw !== undefined && phRaw !== ""){
-      var ph = parseFloat(phRaw);
-      if (!isNaN(ph)){
-        if (ph < 0) ph = 0; if (ph > 1) ph = 1;
-        var px = Math.round(ph * (W - 1));
-        for (var py = lo; py <= hi; py += 3) ctx.setPixel(px, py, 1);
-      }
-    }
-
-    /* two param rows in MCU font; active cell inverts (white box, black text) */
-    for (var k = 0; k < PNP_LAYOUT.length; k++){
-      var pm = PNP_LAYOUT[k];
-      var cellX = (k % 4) * PNP_CELL_W;
-      var active = (k === s.active);
-      if (active) ctx.fillRect(cellX, pnpCellTopY(k), PNP_CELL_W - 1, PNP_CELL_H, 1);
-      var color = active ? 0 : 1;
-      var cx = pnpCellCX(k);
-      mcuPrintC(ctx, cx, pnpCellTopY(k), pm.abbr, color);
-      mcuPrintC(ctx, cx, pnpCellValY(k), pnpCellText(pm, ctx.getParam(pm.key)), color);
-    }
+  drawCell: function(ctx, o){
+    var values = o && o.values;
+    var shape = pnpShape(values);
+    if (!shape) return;
+    var w = ctx.width, h = ctx.height;
+    var now = (o && typeof o.nowMs === "number") ? o.nowMs : Date.now();
+    var cols = pnpCachedColumns(pnpCellCache, shape, w, h);
+    pnpDrawCurve(ctx, 0, 0, w, h, cols, pnpPlayhead(pnpCellPhase, values.ui_phase, now));
   },
 
   _test: {
-    dirFromCC: dirFromCC, accumStep: accumStep, cycleEnum: cycleEnum,
-    clampNum: clampNum, pnpNextWrite: pnpNextWrite, pnpCellText: pnpCellText,
-    pnpCurveEval: pnpCurveEval, pnpShaperEval: pnpShaperEval,
-    NAMES: PNP_CURVE_NAMES, ABBR: PNP_CURVE_ABBR,
-    LAYOUT: PNP_LAYOUT, MCUFONT: MCUFONT
+    pnpCurveEval: pnpCurveEval, pnpShaperEval: pnpShaperEval, pnpCurveIndex: pnpCurveIndex,
+    pnpShape: pnpShape, pnpColumns: pnpColumns, pnpParsePhase: pnpParsePhase,
+    pnpPlayhead: pnpPlayhead, NAMES: PNP_CURVE_NAMES, DEF_SLOPE: PNP_DEF_SLOPE,
+    POLARITY: PNP_CURVE_POLARITY, STALE_MS: PNP_PHASE_STALE_MS
   }
+};
+
+/* The floating card: name and value on top, the curve below. */
+globalThis.pnp_curve_card = function(ctx, o){
+  var w = o.w, h = o.h;
+  var name = String(o.name || "").toUpperCase();
+  var value = (o.raw === null || o.raw === undefined) ? "--" : String(o.value || "").toUpperCase();
+  ctx.print(1, 0, name, 1);
+  ctx.print(w - 1 - ctx.textWidth(value), 0, value, 1);
+  var shape = pnpShape(o.values);
+  if (!shape) return;
+  var top = 9, ch = h - top;
+  if (ch < 5) return;
+  var now = typeof o.nowMs === "number" ? o.nowMs : Date.now();
+  var cols = pnpCachedColumns(pnpCardCache, shape, w, ch);
+  pnpDrawCurve(ctx, 0, top, w, ch, cols, pnpPlayhead(pnpCardPhase, o.values.ui_phase, now));
 };

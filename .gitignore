@@ -7,3 +7,4 @@ tests/measure
 
 # local dev docs — keep out of the repo
 docs/superpowers/
+tests/dump_contract

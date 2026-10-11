@@ -1,12 +1,79 @@
 {
   "title": "PushNPull",
-  "sections": [
-    {"heading": "What it does", "body": "Creative sidechain effects for dummies. A tempo-synced curve shaper: a beat-locked curve modulates volume (duck or boost) and/or a multimode filter's cutoff. Sync only — it locks to the host clock."},
-    {"heading": "Transport-synced", "body": "Tempo-sync only: PushNPull is bypassed when the transport is stopped. With no clock running, audio passes through dry/untouched; the effect kicks back in when you hit play."},
-    {"heading": "Curve / Rate", "body": "Pick one of 12 curve shapes; Rate sets the cycle rate (1/8, 1/4, 1/2, 1/1)."},
-    {"heading": "Volume / Filter", "body": "Bipolar depths, one per target. 0% = Off; negative ducks, positive pumps/boosts. Run either or both."},
-    {"heading": "Slope / Shift", "body": "Slope sets how wide the active part of the curve is; Shift slides it in time for groove. Neither changes depth."},
-    {"heading": "Attack", "body": "Softens the onset — eases into the curve so the entry isn't an instant snap. Depth is preserved; 0% = instant."},
-    {"heading": "Band Split", "body": "Duck only the lows below Band Freq, leaving the highs untouched — invisible low-end ducking."}
+  "children": [
+    {
+      "title": "Overview",
+      "lines": [
+        "Creative sidechain",
+        "effects for dummies.",
+        "",
+        "A curve repeats in",
+        "time with the beat",
+        "and ducks or boosts",
+        "the volume, sweeps a",
+        "filter, or both.",
+        "",
+        "Tempo-sync only: it",
+        "is bypassed while",
+        "the transport is",
+        "stopped."
+      ]
+    },
+    {
+      "title": "Curve page",
+      "lines": [
+        "Rate: how often the",
+        " curve repeats",
+        " (1/8 to 1/1).",
+        "Vol: volume depth.",
+        "Filter: cutoff depth.",
+        " 0% = off.",
+        " Below 0 ducks,",
+        " above 0 boosts.",
+        "",
+        "The picture is one",
+        "cycle of the curve.",
+        "The dotted line is",
+        "where the beat is.",
+        "",
+        "Curve: 12 shapes.",
+        "Slope: how wide the",
+        " dip or rise is.",
+        "Shift: slides it",
+        " earlier or later.",
+        "Attack: eases the",
+        " start. Depth stays."
+      ]
+    },
+    {
+      "title": "Filter page",
+      "lines": [
+        "Model: SVF or",
+        " Schwoog (ladder).",
+        "Drive: saturation",
+        " before the filter.",
+        "Cutoff, Reso: the",
+        " filter the curve",
+        " sweeps around.",
+        "Mode: LP HP BP Notch",
+        " Peak AP (SVF only).",
+        "",
+        "The filter only runs",
+        "when Filter depth on",
+        "the Curve page is",
+        "not 0%."
+      ]
+    },
+    {
+      "title": "Output page",
+      "lines": [
+        "Split: duck only the",
+        " lows, leave the",
+        " highs untouched.",
+        "Xover: where lows",
+        " end (20 Hz-5 kHz).",
+        "Output: final level."
+      ]
+    }
   ]
 }

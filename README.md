@@ -37,18 +37,19 @@ as a simple volume pump, a filter sweep, or a mix of the two.
 
 ## On-device editing
 
-Open the **Visual Edit** view for a live curve display (it redraws as you edit) with the
-eight knobs mapped over it:
+PushNPull is three pages on the knob grid, one per section. Jog to page between them.
 
-| Row | Knob 1 | Knob 2 | Knob 3 | Knob 4 |
-|-----|--------|--------|--------|--------|
-| **Top** (modulator) | CURV | RATE | SLOPE | SHIFT |
-| **Bottom** | ATTAK | FREQ (cutoff) | FILTR | VOLUM |
+| Page | Top row | Bottom row |
+|------|---------|------------|
+| **Curve** | Rate · Vol depth · Filter depth | Curve · Slope · Shift · Attack, drawn as one picture of the curve |
+| **Filter** | Model · Drive | Cutoff · Reso · Mode, drawn as the filter's response |
+| **Output** | Split · Xover · Output | |
 
-The **jog wheel** cycles through curves. Filter *tone* params (model, mode,
-resonance, drive) and **Output** live in the standard parameter menu.
+The curve picture shows one cycle and redraws as you turn any of the four knobs under
+it; a dotted line follows the beat while the transport runs. Hold or turn Slope, Shift
+or Attack and a larger view of the curve floats over the page until you let go.
 
-<img src="docs/curve-view.png" alt="PushNPull — Visual Edit" width="524">
+<img src="docs/curve-view.png" alt="PushNPull — Curve page" width="524">
 
 ## Parameters
 
@@ -84,11 +85,11 @@ resonance, drive) and **Output** live in the standard parameter menu.
 - **Filter** — filter-cutoff modulation depth, bipolar. `0%` = **Off** (filter
   fully bypassed); negative closes the cutoff on the curve, positive opens it.
 
-### Filter tone *(menu)*
+### Filter tone
 
 - **Model** — `SVF` (state-variable) or `Schwoog` (transistor-ladder).
-- **Mode** — `LP`, `HP`, `BP`, `Notch`, `Peak`, `AP` (SVF model).
-- **Cutoff** (shown as **FREQ** on the canvas) — base filter cutoff that the Filter
+- **Mode** — `LP`, `HP`, `BP`, `Notch`, `Peak`, `AP` (SVF model; hidden while the model is Schwoog).
+- **Cutoff** — base filter cutoff that the Filter
   depth modulates around.
 - **Resonance** — filter emphasis / Q.
 - **Drive** — pre-filter saturation.
@@ -97,10 +98,10 @@ resonance, drive) and **Output** live in the standard parameter menu.
 
 - **Band Split** — when on, the Volume duck affects only the lows below **Band
   Freq**, leaving the highs untouched (pump the sub/kick region without dulling the
-  top — invisible low-end ducking). *(menu)*
-- **Band Freq** — the low/high crossover for Band Split (`20 Hz–5.1 kHz`). Shows
-  `--` while Band Split is off. *(menu)*
-- **Output** — final output level (`-24…+12 dB`). *(menu)*
+  top — invisible low-end ducking).
+- **Band Freq** (shown as **XOVER**) — the low/high crossover for Band Split
+  (`20 Hz–5.1 kHz`).
+- **Output** — final output level (`-24…+12 dB`).
 
 ## Build & install
 
@@ -115,6 +116,6 @@ Built on the DSP foundation of
 [`schwung-filter`](https://github.com/charlesvestal/schwung-filter) (MIT) —
 SVF and transistor-ladder filters, parameter smoother, and build/test infra. PushNPull adds the
 MIDI-clock beat phasor, the curve bank + shaper (Slope/Shift/Attack), the
-volume/band-split path, and the on-device curve editor.
+volume/band-split path, and the on-device curve graphics.
 
 License: MIT.

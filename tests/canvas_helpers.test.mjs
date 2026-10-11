@@ -1,108 +1,112 @@
-// One-shot node check for canvas.js pure helpers. Run: node tests/canvas_helpers.test.mjs
+// Node checks for canvas.js. Run: make -C tests dump_contract && node tests/canvas_helpers.test.mjs
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(here, "..", "src", "canvas.js"), "utf8");
-// canvas.js is a plain script that assigns globalThis.pushnpull_canvas; eval it here.
-(0, eval)(src);
-const T = globalThis.pushnpull_canvas._test;
+// canvas.js is a plain script that assigns globalThis.canvas_overlay; eval it here.
+(0, eval)(readFileSync(join(here, "..", "src", "canvas.js"), "utf8"));
+const ov = globalThis.canvas_overlay, T = ov._test;
 
 let failures = 0;
+function ok(cond, msg) { if (!cond) { failures++; console.error(`FAIL ${msg}`); } else console.log(`ok   ${msg}`); }
 function eq(actual, expected, msg) {
   const a = JSON.stringify(actual), e = JSON.stringify(expected);
-  if (a !== e) { failures++; console.error(`FAIL ${msg}: got ${a}, want ${e}`); }
-  else { console.log(`ok   ${msg}`); }
+  ok(a === e, a === e ? msg : `${msg}: got ${a}, want ${e}`);
 }
 
-// dirFromCC: 1..63 -> +1, 65..127 -> -1, 0 and 64 -> 0
-eq(T.dirFromCC(1), 1, "dirFromCC cw min");
-eq(T.dirFromCC(63), 1, "dirFromCC cw max");
-eq(T.dirFromCC(65), -1, "dirFromCC ccw min");
-eq(T.dirFromCC(127), -1, "dirFromCC ccw max");
-eq(T.dirFromCC(0), 0, "dirFromCC zero");
-eq(T.dirFromCC(64), 0, "dirFromCC sixtyfour");
+// ---- the surfaces the host looks for
+eq(ov.widgetKind, "custom:pnpcurve", "the widget registers as custom:pnpcurve");
+eq(typeof ov.drawCell, "function", "canvas_overlay.drawCell exists");
+eq(typeof globalThis.pnp_curve_card, "function", "pnp_curve_card exists");
+eq(typeof ov.draw, "undefined", "no fullscreen draw: the old Visual Edit dive is gone");
 
-// accumStep: fires (and resets) when |accum| reaches sens; reversal resets first.
-eq(T.accumStep(0, 1, 2), { accum: 1, fire: false }, "accum first tick no fire");
-eq(T.accumStep(1, 1, 2), { accum: 0, fire: true }, "accum second tick fires+resets");
-eq(T.accumStep(1, -1, 2), { accum: -1, fire: false }, "accum reversal resets then counts");
-eq(T.accumStep(0, 1, 1), { accum: 0, fire: true }, "accum sens1 fires every detent");
+// ---- the JS curve is the DSP's curve. Samples come from the C shaper itself.
+const samples = JSON.parse(execFileSync(join(here, "dump_contract"), ["curves"], { encoding: "utf8", maxBuffer: 1 << 24 }));
+let worst = 0, n = 0;
+for (const s of samples) s.m.forEach((m, i) => {
+  const d = Math.abs(T.pnpShaperEval(s.cv, (i + 0.37) / 64, s.slope, s.shift, s.attack) - m);
+  if (d > worst) worst = d; n++;
+});
+eq(samples.length, 12 * 3 * 2 * 2, "C samples cover 12 curves x slope x shift x attack");
+ok(worst < 1e-4, `canvas.js matches dsp/shaper.c over ${n} points (worst ${worst.toExponential(1)})`);
+eq([T.NAMES.length, T.DEF_SLOPE.length, T.POLARITY.length], [12, 12, 12], "12 names, default slopes and polarities");
 
-// cycleEnum: wraps within [0, count)
-eq(T.cycleEnum(0, -1, 8), 7, "cycleEnum wraps below to last");
-eq(T.cycleEnum(7, 1, 8), 0, "cycleEnum wraps above to first");
-eq(T.cycleEnum(3, 1, 8), 4, "cycleEnum normal up");
+// ---- polarity table is honest: a curve never leaves the half it is drawn in
+for (let cv = 0; cv < 12; cv++) {
+  let lo = 0, hi = 0;
+  for (const A of [0.05, 0.5, 1]) for (let i = 0; i < 400; i++) {
+    const m = T.pnpCurveEval(cv, i / 400, A); if (m < lo) lo = m; if (m > hi) hi = m;
+  }
+  const pol = T.POLARITY[cv];
+  ok(pol < 0 ? hi < 1e-9 : pol > 0 ? lo > -1e-9 : (lo < -0.1 && hi > 0.1), `${T.NAMES[cv]} polarity ${pol}`);
+}
 
-// clampNum
-eq(T.clampNum(2, -1, 1), 1, "clampNum high");
-eq(T.clampNum(-2, -1, 1), -1, "clampNum low");
-eq(T.clampNum(0.5, -1, 1), 0.5, "clampNum mid");
+// ---- values
+eq(T.pnpCurveIndex("Punch"), 2, "curve by label");
+eq(T.pnpCurveIndex("11"), 11, "curve by index");
+eq([T.pnpCurveIndex(null), T.pnpCurveIndex(""), T.pnpCurveIndex("Nope"), T.pnpCurveIndex(12)], [-1, -1, -1, -1], "no usable curve -> -1");
+eq(T.pnpShape({}), null, "no curve value -> no shape");
+eq(T.pnpShape({ curve: "Gate" }), { cv: 4, slope: 0.12, shift: 0.5, attack: 0 }, "missing siblings fall back to defaults");
+eq(T.pnpShape({ curve: "Gate", slope: "0.30", shift: 0.7, attack: "0.1" }), { cv: 4, slope: 0.3, shift: 0.7, attack: 0.1 }, "string and number values");
 
-// LAYOUT order: knobs 1-4 = modulator, 5-8 = targets/output.
-eq(T.LAYOUT.map(p => p.key),
-   ["curve","length","slope","shift","attack","cutoff","filter","volume"],
-   "LAYOUT knob order (top: modulator, bottom: attack/tone/targets)");
-eq(T.LAYOUT.map(p => p.abbr),
-   ["Curv","Lngth","Slope","Shift","Attak","Freq","Filtr","Volum"],
-   "LAYOUT title-case labels");
+// ---- columns: full depth survives a narrow slope; nothing leaves the box
+for (const [w, h] of [[128, 15], [116, 31]]) {
+  const c = T.pnpColumns({ cv: 0, slope: 0.02, shift: 0.5, attack: 0 }, w, h);
+  eq(Math.max(...c.bot), h - 1, `narrow dip still reaches the bottom at ${w}x${h}`);
+  ok(c.top.every((y, x) => y >= 0 && y <= c.bot[x] && c.bot[x] <= h - 1), `columns stay inside ${w}x${h}`);
+}
+eq(T.pnpColumns({ cv: 11, slope: 0.8, shift: 0.5, attack: 0 }, 128, 15).base, 7, "a two-way curve rests on the middle row");
+eq(T.pnpColumns({ cv: 7, slope: 0.5, shift: 0.5, attack: 0 }, 128, 15).base, 14, "a rising curve rests on the bottom row");
 
-const byKey = {}; T.LAYOUT.forEach(p => byKey[p.key] = p);
+// ---- playhead
+eq(T.pnpParsePhase("0.2500 0.0020000 1"), { phase: 0.25, rate: 0.002, active: true }, "parse phase/rate/active");
+eq(T.pnpParsePhase("0.4"), { phase: 0.4, rate: 0, active: true }, "a bare number is a phase");
+eq([T.pnpParsePhase(null), T.pnpParsePhase(""), T.pnpParsePhase("x")], [null, null, null], "no answer -> null");
+const near = (a, b) => Math.abs(a - b) < 1e-9;
+{
+  const st = {};
+  eq(T.pnpPlayhead(st, null, 0), -1, "no value -> no playhead");
+  eq(T.pnpPlayhead(st, "0.5 0.002 0", 0), -1, "inactive clock -> no playhead");
+  ok(near(T.pnpPlayhead(st, "0.1 0.002 1", 1000), 0.1), "first sample anchors");
+  ok(near(T.pnpPlayhead(st, "0.1 0.002 1", 1100), 0.3), "runs on at the reported rate between samples");
+  ok(near(T.pnpPlayhead(st, "0.1 0.002 1", 1500), 0.1), "wraps at the end of the cycle");
+  ok(near(T.pnpPlayhead(st, "0.34 0.002 1", 1600), 0.32), "a small disagreement is split, not jumped to");
+  ok(near(T.pnpPlayhead(st, "0.9 0.002 1", 1700), 0.9), "a large one re-anchors");
+  eq(T.pnpPlayhead(st, "0.9 0.002 1", 1700 + T.STALE_MS + 1), -1, "no fresh sample for a while -> no playhead");
+  eq(T.pnpPlayhead(st, "0.2 0.002 0", 9000), -1, "clock stops -> playhead goes");
+}
+{
+  const st = {};
+  T.pnpPlayhead(st, "0.98 0.002 1", 0);
+  ok(near(T.pnpPlayhead(st, "0.02 0.002 1", 10), 0.01), "correction works across the wrap");
+}
 
-// pnpNextWrite: enum cycles by name, floats step+clamp, returns null at limit.
-eq(T.pnpNextWrite(byKey.curve, "Punch", 1), "Sub Bass", "next curve up");
-eq(T.pnpNextWrite(byKey.curve, "Sidechain 1", -1), "Pump", "next curve wraps down to last");
-eq(T.pnpNextWrite(byKey.volume, "-1.00", 1), "-0.99", "next volume up from floor (1% step)");
-eq(T.pnpNextWrite(byKey.volume, "-1.00", -1), null, "next volume at floor -> null");
-eq(T.pnpNextWrite(byKey.volume, "1.00", 1), null, "next volume at ceil -> null");
-eq(T.pnpNextWrite(byKey.slope, "0.54", 1), "0.55", "next slope up (1% step)");
-eq(T.pnpNextWrite(byKey.cutoff, "0.50", 1), "0.51", "next cutoff up (1% step)");
-eq(T.pnpNextWrite(byKey.attack, "0.00", 1), "0.01", "next attack up (1% step)");
+// ---- drawing: runs through a recording ctx; nothing outside the frame, no reads
+function recorder(w, h) {
+  const calls = [];
+  return { width: w, height: h, calls,
+    fillRect(x, y, rw, rh, c) { calls.push([x, y, rw, rh, c]); },
+    print(x, y, t) { calls.push(["print", x, y, t]); }, textWidth: (t) => t.length * 5 };
+}
+const inside = (r) => r.calls.every((c) => c[0] === "print" || (c[0] >= 0 && c[1] >= 0 && c[0] + c[2] <= r.width && c[1] + c[3] <= r.height && c[2] > 0 && c[3] > 0));
+for (const name of T.NAMES) {
+  const r = recorder(128, 15);
+  ov.drawCell(r, { values: { curve: name, slope: 0.3, shift: 0.9, attack: 0.2, ui_phase: "0.9999 0 1" }, nowMs: 5 });
+  ok(r.calls.length > 0 && inside(r), `${name}: widget draws inside 128x15 (${r.calls.length} rects)`);
+}
+{
+  const r = recorder(128, 15);
+  ov.drawCell(r, { values: { slope: 0.3 }, nowMs: 5 });
+  eq(r.calls.length, 0, "widget draws nothing when the curve did not answer");
+  const c = recorder(116, 40);
+  globalThis.pnp_curve_card(c, { w: 116, h: 40, name: "Slope", value: "", raw: null, values: null, nowMs: 5 });
+  eq(c.calls.map((x) => x[3]), ["SLOPE", "--"], "card with no answer prints the name and -- only");
+  const d = recorder(116, 40);
+  globalThis.pnp_curve_card(d, { w: 116, h: 40, name: "Shift", value: "70%", raw: "0.7", values: { curve: "Pump", shift: 0.7 }, nowMs: 5 });
+  ok(d.calls.length > 2 && inside(d), "card draws the curve inside its frame");
+}
 
-// pnpCellText: compact cell value per param.
-eq(T.pnpCellText(byKey.curve, "Sidechain 1"), "SC1", "cell curve abbrev");
-eq(T.pnpCellText(byKey.length, "1/4"), "1/4", "cell length raw");
-eq(T.pnpCellText(byKey.volume, "-1.00"), "-100%", "cell volume duck");
-eq(T.pnpCellText(byKey.volume, "0.80"), "+80%", "cell volume pump");
-eq(T.pnpCellText(byKey.volume, "0.00"), "Off", "cell volume 0% -> Off");
-eq(T.pnpCellText(byKey.filter, "0.00"), "Off", "cell filter 0% -> Off");
-eq(T.pnpCellText(byKey.volume, "0.004"), "Off", "cell volume rounds to 0 -> Off");
-eq(T.pnpCellText(byKey.volume, "0.01"), "+1%", "cell volume 1% stays numeric");
-eq(T.pnpCellText(byKey.slope, "0.55"), "55%", "cell slope pct");
-eq(T.pnpCellText(byKey.cutoff, "0.500"), "50%", "cell cutoff (FREQ) pct");
-eq(T.pnpCellText(byKey.attack, "0.20"), "20%", "cell attack pct");
-
-// New curves mirror the DSP (curves.h). Cross-check key behaviors.
-eq(T.NAMES.length, 12, "12 curves");
-eq(T.ABBR.length, 12, "12 curve abbrevs");
-const ci = n => T.NAMES.indexOf(n);
-const near = (a, b) => Math.abs(a - b) < 0.05;
-eq(T.pnpCurveEval(ci("Trim"), 0, 0.18) < -0.95, true, "Trim full duck at p=0");
-eq(near(T.pnpCurveEval(ci("Swell"), 0, 0.70), 0), true, "Swell rests at p=0");
-eq(T.pnpCurveEval(ci("Swell"), 0.35, 0.70) > 0.9, true, "Swell boosts mid-window (positive)");
-eq(T.pnpCurveEval(ci("Stutter"), 0.225, 0.90) < -0.9, true, "Stutter re-ducks at subdivision");
-eq(T.pnpCurveEval(ci("Pump"), 0, 0.80) < -0.9, true, "Pump ducks at p=0");
-eq(T.pnpCurveEval(ci("Pump"), 0.40, 0.80) > 0.2, true, "Pump boosts mid-window (bipolar)");
-// Attack (5th arg) eases the onset in, like shaper.c.
-const sc1 = ci("Sidechain 1");
-eq(T.pnpShaperEval(sc1, 0, 0.55, 0.5, 0) < -0.95, true, "attack=0: full duck at onset");
-eq(near(T.pnpShaperEval(sc1, 0, 0.55, 0.5, 0.25), 0), true, "attack softens onset to ~rest");
-eq(Math.abs(T.pnpShaperEval(sc1, 0.05, 0.55, 0.5, 0.25)) <
-   Math.abs(T.pnpCurveEval(sc1, 0.05, 0.55)), true, "attack: eased-in during ramp");
-// depth preserved: scan the cycle, trough still reaches ~full -1
-let attMin = 0; for (let i = 0; i <= 400; i++) { const m = T.pnpShaperEval(sc1, i/400, 0.55, 0.5, 0.25); if (m < attMin) attMin = m; }
-eq(attMin < -0.98, true, "attack preserves full dip depth");
-
-// MCU font must cover every glyph the UI can render (abbrevs, curve abbrevs,
-// length names, and value chars + and % and -).
-const needed = new Set();
-for (const p of T.LAYOUT) for (const ch of p.abbr) needed.add(ch);
-for (const a of T.ABBR) for (const ch of a) needed.add(ch);
-for (const l of ["1/8","1/4","1/2","1/1","Off"]) for (const ch of l) needed.add(ch);
-for (const ch of "0123456789+-.%") needed.add(ch);
-const missing = [...needed].filter(ch => !T.MCUFONT[ch]);
-eq(missing, [], "MCU font covers all rendered glyphs");
-
-if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
-console.log("\nall canvas helper tests passed");
+console.log(failures ? `\n${failures} failure(s)` : "\nall checks passed");
+process.exit(failures ? 1 : 0);
