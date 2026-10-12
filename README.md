@@ -19,9 +19,14 @@ sustained sounds.
 
 > **Tempo-sync only — bypassed when the transport is stopped.** Because the curve
 > is locked to the host clock, PushNPull only shapes audio while the transport is
-> **running**. When playback is stopped (no incoming MIDI clock), the effect
+> **running**. When playback is stopped, the effect
 > passes audio straight through untouched — you'll hear the dry signal, and the
 > pumping/sweeping resumes the moment you hit play.
+
+It works in an instrument slot's FX chain and in **Master FX**. In Master FX the
+host sends no MIDI clock, so PushNPull follows the host's transport position
+instead; that needs Schwung 0.11.5 or newer. On an older host it stays bypassed
+in Master FX — put it on the instrument slots instead.
 
 ## How it works
 

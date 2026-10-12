@@ -4,8 +4,12 @@
  * volume target (with optional band split) and/or a multimode filter cutoff.
  * Built on schwung-filter's SVF/ladder/smoother DSP.
  */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE            /* RTLD_DEFAULT */
+#endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <dlfcn.h>
 #include <string.h>
 #include <strings.h>
 #include <math.h>
@@ -120,6 +124,24 @@ static void pnp_log(const char *m){
     if (g_host && g_host->log){ char b[256]; snprintf(b,sizeof(b),"[PushNPull] %s",m); g_host->log(b); }
 }
 
+/* The host's transport position, or NULL when it cannot be had safely.
+ *
+ * The struct field alone cannot be trusted: on a host that predates it the
+ * read lands past the end of the struct (see plugin_api_v1.h), and calling
+ * what is found there crashes the audio thread. The function behind the field
+ * is exported by the host shim, and dlsym answers NULL cleanly where it does
+ * not exist, so its presence is what proves the field is real. A host that
+ * renames it costs us only the Master FX case: we fall back to MIDI clock. */
+static double (*g_host_beat)(void) = NULL;
+static void pnp_bind_host_beat(const host_api_v1_t *host){
+    g_host_beat = NULL;
+    if (!host || !dlsym(RTLD_DEFAULT, "shadow_transport_beat_position")) return;
+    g_host_beat = host->get_beat_position;
+}
+/* Beats since transport start, < 0 when stopped or unavailable. */
+static double pnp_host_beat(void){ return g_host_beat ? g_host_beat() : -1.0; }
+static double pnp_host_bpm(void){ return (g_host && g_host->get_bpm) ? (double)g_host->get_bpm() : 0.0; }
+
 /* ---- lifecycle ---- */
 static void* pnp_create(const char *module_dir, const char *config_json){
     (void)config_json;
@@ -160,9 +182,12 @@ static void pnp_on_midi(void *inst, const uint8_t *msg, int len, int source){
 static void pnp_process(void *inst, int16_t *audio, int frames){
     pnp_t *I=(pnp_t*)inst; if(!I) return;
 
+    double hb = pnp_host_beat();
+    pnp_clock_set_host_beat(&I->clk, hb, hb < 0.0 ? 0.0 : pnp_host_bpm());
     double inc = pnp_clock_block_start(&I->clk);   /* beats per sample (resyncs phase) */
 
-    /* No MIDI clock -> effectively bypassed: leave audio untouched and pass through.
+    /* No clock, from MIDI or from the host transport -> effectively bypassed:
+     * leave audio untouched and pass through.
      * (Still advance the clock so tick timing/detection stays correct.) */
     if (!pnp_clock_active(&I->clk)) {
         pnp_clock_advance_block(&I->clk, frames);
@@ -298,12 +323,21 @@ static int pnp_get_param(void *inst, const char *key, char *buf, int n){
     if(!strcmp(key,"ui_phase")){
         /* "<phase> <phase per ms> <active>" for the curve picture's playhead.
          * Phase comes from tick_count (advanced in on_midi), not beat_pos: the
-         * host skips process on a silent slot, which would freeze beat_pos. */
+         * host skips process on a silent slot, which would freeze beat_pos.
+         * With no ticks (Master FX) the host transport is asked directly, for
+         * the same reason. */
         double bpc  = LEN_BEATS[I->length];
         double beats = I->clk.running ? (double)I->clk.tick_count / 24.0 : I->clk.beat_pos;
-        double cp   = beats / bpc; cp -= floor(cp);
-        double rate = pnp_clock_bpm(&I->clk) / 60000.0 / bpc;
+        double bpm  = pnp_clock_bpm(&I->clk);
         int active  = pnp_clock_active(&I->clk) ? 1 : 0;
+        double hb   = pnp_host_beat();
+        if (hb >= 0.0 && (pnp_clock_on_host(&I->clk) || !active)){
+            double hbpm = pnp_host_bpm();
+            beats = hb; active = 1;
+            if (hbpm >= 20.0) bpm = hbpm;
+        }
+        double cp   = beats / bpc; cp -= floor(cp);
+        double rate = bpm / 60000.0 / bpc;
         return snprintf(buf,n,"%.4f %.7f %d", cp, rate, active);
     }
     if(!strcmp(key,"state")){
@@ -329,6 +363,7 @@ static int pnp_get_param(void *inst, const char *key, char *buf, int n){
 static audio_fx_api_v2_t g_api;
 audio_fx_api_v2_t* move_audio_fx_init_v2(const host_api_v1_t *host){
     g_host = host;
+    pnp_bind_host_beat(host);
     memset(&g_api,0,sizeof(g_api));
     g_api.api_version     = AUDIO_FX_API_VERSION_2;
     g_api.create_instance = pnp_create;

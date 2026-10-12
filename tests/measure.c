@@ -350,6 +350,28 @@ int main(void) {
         /* a fresh tick re-activates */
         pnp_clock_on_midi(&a, &tk2, 1);
         CHECK(pnp_clock_active(&a) == 1, "active: re-activates when ticks resume");
+
+        /* ---- host transport as the clock (Master FX: no ticks ever arrive) ---- */
+        pnp_clock_t h; pnp_clock_init(&h, FS);
+        pnp_clock_set_host_beat(&h, -1.0, 0.0);
+        CHECK(pnp_clock_active(&h) == 0, "host: stopped transport and no ticks -> bypass");
+        pnp_clock_set_host_beat(&h, 2.5, 90.0);
+        CHECK(pnp_clock_active(&h) == 1 && pnp_clock_on_host(&h) == 1,
+              "host: running transport activates with no ticks");
+        double hinc = pnp_clock_block_start(&h);
+        CHECK(fabs(h.beat_pos - 2.5) < 1e-12, "host: phase taken from host beat (got %.4f)", h.beat_pos);
+        CHECK(fabs(hinc - 90.0 / (60.0 * FS)) < 1e-12, "host: increment from host BPM (got %.3e)", hinc);
+        CHECK(fabs(pnp_clock_bpm(&h) - 90.0) < 1e-9, "host: reports host BPM");
+        pnp_clock_set_host_beat(&h, -1.0, 0.0);
+        CHECK(pnp_clock_active(&h) == 0, "host: transport stop -> bypass again");
+        /* ticks win when both are present (a chain slot is unchanged) */
+        double tick_bpm = pnp_clock_bpm(&a);
+        pnp_clock_set_host_beat(&a, 7.25, 90.0);
+        CHECK(pnp_clock_active(&a) == 1 && pnp_clock_on_host(&a) == 0,
+              "host: ticks take priority over the host beat");
+        pnp_clock_block_start(&a);
+        CHECK(fabs(a.beat_pos - 7.25) > 1e-6, "host: tick phase not overwritten by host beat");
+        CHECK(pnp_clock_bpm(&a) == tick_bpm, "host: tick BPM kept while ticks arrive");
     }
 
     /* ===== PushNPull: volume gain + band split ===== */

@@ -110,6 +110,15 @@ typedef struct host_api_v1 {
      * e.g. minijv part 6). NULL if the host doesn't expose slot context. */
     int (*slot_recv_channel)(void *instance);
 
+    /* Beats since transport start of the active clock source, interpolated
+     * per block. Returns < 0 when no transport is running.
+     *
+     * NOT SAFE TO READ ON EVERY HOST. Hosts before 2026-07 end this struct at
+     * slot_recv_channel, so this field is whatever memory follows it there and
+     * a NULL check proves nothing. Establish that the host is new enough by
+     * some other means before touching it (pushnpull.c: pnp_bind_host_beat). */
+    double (*get_beat_position)(void);
+
 } host_api_v1_t;
 
 /*

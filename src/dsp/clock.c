@@ -11,6 +11,11 @@
  * Start/Continue; block_start() resyncs it to tick_count/24 whenever a tick has
  * arrived, and returns the per-sample beat increment. When the transport is not
  * running (or no clock seen), we free-run from the fallback BPM.
+ *
+ * Second source: the host's own transport position (set_host_beat). The host
+ * broadcasts clock bytes to chain slots only, so in Master FX no tick ever
+ * arrives; there the beat position the host reports is the whole clock. Ticks
+ * win whenever they are arriving, so a chain slot behaves exactly as before.
  */
 #include "clock.h"
 
@@ -68,9 +73,32 @@ void pnp_clock_on_midi(pnp_clock_t *c, const uint8_t *msg, int len) {
     }
 }
 
+/* Ticks measured and one landed within the timeout window. */
+static int ticks_active(const pnp_clock_t *c) {
+    if (!c->have_period) return 0;
+    uint32_t since = c->sample_pos - c->last_tick_sample;   /* unsigned wrap-safe */
+    return (double)since < c->fs * CLOCK_TIMEOUT_SEC;
+}
+
+void pnp_clock_set_host_beat(pnp_clock_t *c, double beat, double bpm) {
+    if (beat < 0.0) { c->host_locked = 0; return; }
+    if (bpm < 20.0) bpm = c->fallback_bpm;
+    if (bpm > 400.0) bpm = 400.0;
+    c->host_locked = 1;
+    c->host_beat = beat;
+    c->host_bpm = bpm;
+}
+
+int pnp_clock_on_host(const pnp_clock_t *c) {
+    return c->host_locked && !ticks_active(c);
+}
+
 double pnp_clock_block_start(pnp_clock_t *c) {
     double samples_per_beat;
-    if (c->running && c->have_period) {
+    if (pnp_clock_on_host(c)) {
+        c->beat_pos = c->host_beat;   /* the host interpolates this per block */
+        samples_per_beat = c->fs * 60.0 / c->host_bpm;
+    } else if (c->running && c->have_period) {
         if (c->resync_pending) {
             c->beat_pos = (double)c->tick_count / TICKS_PER_BEAT;
             c->resync_pending = 0;
@@ -88,17 +116,15 @@ void pnp_clock_advance_block(pnp_clock_t *c, int frames) {
 }
 
 double pnp_clock_bpm(const pnp_clock_t *c) {
+    if (pnp_clock_on_host(c)) return c->host_bpm;
     if (c->have_period && c->period_ema > 0.0)
         return c->fs * 60.0 / (c->period_ema * TICKS_PER_BEAT);
     return c->fallback_bpm;
 }
 
-/* True only while MIDI clock is actually arriving: we've measured a tick period
- * AND a tick landed within the timeout window. When the host stops broadcasting
- * clock (transport stopped / no clock source), this goes false and PushNPull
- * passes audio through untouched. */
+/* True while there is a clock to lock to: MIDI clock ticks are arriving, or the
+ * host reports a running transport. When neither holds (transport stopped / no
+ * clock source), PushNPull passes audio through untouched. */
 int pnp_clock_active(const pnp_clock_t *c) {
-    if (!c->have_period) return 0;
-    uint32_t since = c->sample_pos - c->last_tick_sample;   /* unsigned wrap-safe */
-    return (double)since < c->fs * CLOCK_TIMEOUT_SEC;
+    return ticks_active(c) || c->host_locked;
 }
