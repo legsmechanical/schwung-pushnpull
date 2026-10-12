@@ -1,13 +1,10 @@
-/* PushNPull curve graphics for the knob grid.
+/* PushNPull curve graphic for the knob grid.
  *
- * Two surfaces, one picture:
- *   - canvas_overlay.drawCell: the "custom:pnpcurve" widget. It spans the four
- *     shaping knobs (Curve, Slope, Shift, Attack) as one strip on the Curve
- *     page and draws one cycle of the curve with a beat-locked playhead.
- *   - pnp_curve_card: the same curve, larger, floated over the page while
- *     Slope, Shift or Attack is held or turned.
+ * canvas_overlay.drawCell is the "custom:pnpcurve" widget. It spans the four
+ * shaping knobs (Curve, Slope, Shift, Attack) as one strip on the Curve page
+ * and draws one cycle of the curve with a beat-locked playhead.
  *
- * Neither reads parameters: both are handed the page's values. The playhead
+ * It reads no parameters: it is handed the page's values. The playhead
  * comes from "ui_phase" ("<phase> <phase per ms> <active>"), which arrives a
  * few times a second and is extrapolated between samples from the frame clock.
  *
@@ -119,7 +116,7 @@ function pnpColumns(shape, w, h){
 }
 
 /* Columns are rebuilt only when what they depend on changes; a frame is then
- * a handful of rects. One slot per surface (widget, card). */
+ * a handful of rects. */
 function pnpCachedColumns(cache, shape, w, h){
   var sig = shape.cv + "|" + shape.slope + "|" + shape.shift + "|" + shape.attack + "|" + w + "|" + h;
   if (cache.sig !== sig){ cache.sig = sig; cache.cols = pnpColumns(shape, w, h); }
@@ -183,7 +180,6 @@ function pnpDrawCurve(ctx, x0, y0, w, h, cols, phase){
 }
 
 var pnpCellCache = {}, pnpCellPhase = {};
-var pnpCardCache = {}, pnpCardPhase = {};
 
 globalThis.canvas_overlay = {
   widgetKind: "custom:pnpcurve",
@@ -204,20 +200,4 @@ globalThis.canvas_overlay = {
     pnpPlayhead: pnpPlayhead, NAMES: PNP_CURVE_NAMES, DEF_SLOPE: PNP_DEF_SLOPE,
     POLARITY: PNP_CURVE_POLARITY, STALE_MS: PNP_PHASE_STALE_MS
   }
-};
-
-/* The floating card: name and value on top, the curve below. */
-globalThis.pnp_curve_card = function(ctx, o){
-  var w = o.w, h = o.h;
-  var name = String(o.name || "").toUpperCase();
-  var value = (o.raw === null || o.raw === undefined) ? "--" : String(o.value || "").toUpperCase();
-  ctx.print(1, 0, name, 1);
-  ctx.print(w - 1 - ctx.textWidth(value), 0, value, 1);
-  var shape = pnpShape(o.values);
-  if (!shape) return;
-  var top = 9, ch = h - top;
-  if (ch < 5) return;
-  var now = typeof o.nowMs === "number" ? o.nowMs : Date.now();
-  var cols = pnpCachedColumns(pnpCardCache, shape, w, ch);
-  pnpDrawCurve(ctx, 0, top, w, ch, cols, pnpPlayhead(pnpCardPhase, o.values.ui_phase, now));
 };

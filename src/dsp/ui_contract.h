@@ -35,8 +35,6 @@ static const char PNP_UI_HIERARCHY[] =
       "\"knobs\":[\"band_on\",\"band_freq\",\"output\",\"\"],"
       "\"params\":[\"band_on\",\"band_freq\",\"output\"]}}}";
 
-#define PNP_CARD "\"card_script\":\"canvas.js#pnp_curve_card\",\"card_w\":120,\"card_h\":44"
-
 static const char PNP_CHAIN_PARAMS[] =
   "["
   "{\"key\":\"curve\",\"name\":\"Curve\",\"type\":\"enum\","
@@ -44,11 +42,11 @@ static const char PNP_CHAIN_PARAMS[] =
     "\"default\":\"Sidechain 1\","
     "\"viz\":{\"group\":\"shape\",\"role\":\"curve\",\"kind\":\"custom:pnpcurve\",\"extra_keys\":[\"ui_phase\"]}},"
   "{\"key\":\"slope\",\"name\":\"Slope\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.55,\"step\":0.02,\"unit\":\"%\","
-    "\"viz\":{\"group\":\"shape\",\"role\":\"slope\"}," PNP_CARD "},"
+    "\"viz\":{\"group\":\"shape\",\"role\":\"slope\"}},"
   "{\"key\":\"shift\",\"name\":\"Shift\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0.5,\"step\":0.02,\"unit\":\"%\","
-    "\"viz\":{\"group\":\"shape\",\"role\":\"shift\"}," PNP_CARD "},"
+    "\"viz\":{\"group\":\"shape\",\"role\":\"shift\"}},"
   "{\"key\":\"attack\",\"name\":\"Attack\",\"type\":\"float\",\"min\":0,\"max\":1,\"default\":0,\"step\":0.02,\"unit\":\"%\","
-    "\"viz\":{\"group\":\"shape\",\"role\":\"attack\"}," PNP_CARD "},"
+    "\"viz\":{\"group\":\"shape\",\"role\":\"attack\"}},"
   "{\"key\":\"length\",\"name\":\"Rate\",\"type\":\"enum\",\"options\":[\"1/8\",\"1/4\",\"1/2\",\"1/1\"],\"default\":\"1/4\"},"
   "{\"key\":\"volume\",\"name\":\"Vol Depth\",\"short_name\":\"Vol\",\"type\":\"float\",\"min\":-1,\"max\":1,\"default\":-1,\"step\":0.02,\"unit\":\"%\",\"viz\":false},"
   "{\"key\":\"filter\",\"name\":\"Flt Depth\",\"short_name\":\"Filter\",\"type\":\"float\",\"min\":-1,\"max\":1,\"default\":0,\"step\":0.02,\"unit\":\"%\",\"viz\":false},"

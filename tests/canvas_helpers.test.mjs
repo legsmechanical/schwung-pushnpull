@@ -19,7 +19,6 @@ function eq(actual, expected, msg) {
 // ---- the surfaces the host looks for
 eq(ov.widgetKind, "custom:pnpcurve", "the widget registers as custom:pnpcurve");
 eq(typeof ov.drawCell, "function", "canvas_overlay.drawCell exists");
-eq(typeof globalThis.pnp_curve_card, "function", "pnp_curve_card exists");
 eq(typeof ov.draw, "undefined", "no fullscreen draw: the old Visual Edit dive is gone");
 
 // ---- the JS curve is the DSP's curve. Samples come from the C shaper itself.
@@ -52,7 +51,7 @@ eq(T.pnpShape({ curve: "Gate" }), { cv: 4, slope: 0.12, shift: 0.5, attack: 0 },
 eq(T.pnpShape({ curve: "Gate", slope: "0.30", shift: 0.7, attack: "0.1" }), { cv: 4, slope: 0.3, shift: 0.7, attack: 0.1 }, "string and number values");
 
 // ---- columns: full depth survives a narrow slope; nothing leaves the box
-for (const [w, h] of [[128, 15], [116, 31]]) {
+for (const [w, h] of [[128, 15], [96, 15]]) {
   const c = T.pnpColumns({ cv: 0, slope: 0.02, shift: 0.5, attack: 0 }, w, h);
   eq(Math.max(...c.bot), h - 1, `narrow dip still reaches the bottom at ${w}x${h}`);
   ok(c.top.every((y, x) => y >= 0 && y <= c.bot[x] && c.bot[x] <= h - 1), `columns stay inside ${w}x${h}`);
@@ -100,12 +99,6 @@ for (const name of T.NAMES) {
   const r = recorder(128, 15);
   ov.drawCell(r, { values: { slope: 0.3 }, nowMs: 5 });
   eq(r.calls.length, 0, "widget draws nothing when the curve did not answer");
-  const c = recorder(116, 40);
-  globalThis.pnp_curve_card(c, { w: 116, h: 40, name: "Slope", value: "", raw: null, values: null, nowMs: 5 });
-  eq(c.calls.map((x) => x[3]), ["SLOPE", "--"], "card with no answer prints the name and -- only");
-  const d = recorder(116, 40);
-  globalThis.pnp_curve_card(d, { w: 116, h: 40, name: "Shift", value: "70%", raw: "0.7", values: { curve: "Pump", shift: 0.7 }, nowMs: 5 });
-  ok(d.calls.length > 2 && inside(d), "card draws the curve inside its frame");
 }
 
 console.log(failures ? `\n${failures} failure(s)` : "\nall checks passed");

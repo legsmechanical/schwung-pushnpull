@@ -46,8 +46,7 @@ PushNPull is three pages on the knob grid, one per section. Jog to page between 
 | **Output** | Split · Xover · Output | |
 
 The curve picture shows one cycle and redraws as you turn any of the four knobs under
-it; a dotted line follows the beat while the transport runs. Hold or turn Slope, Shift
-or Attack and a larger view of the curve floats over the page until you let go.
+it; a dotted line follows the beat while the transport runs.
 
 <img src="docs/curve-view.png" alt="PushNPull — Curve page" width="524">
 
